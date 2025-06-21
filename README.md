@@ -18,7 +18,16 @@ MultiLog是一个用于分布式数据库系统的多元日志异常检测模型
 ### 安装依赖
 
 ```bash
-pip install -r requirements.txt
+pip install torch>=1.9.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install numpy>=1.19.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install scikit-learn>=0.24.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install drain3>=0.9.10 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install fasttext>=0.9.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install pandas>=1.3.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install tqdm>=4.62.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install matplotlib>=3.4.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install seaborn>=0.11.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install python-dateutil>=2.8.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ### 数据集准备
