@@ -1,7 +1,7 @@
 import torch
 import argparse
 import os
-from models.multilog import MultiLog, MultiLogTrainer
+from MultiLog.multilog import MultiLog, MultiLogTrainer
 from data.dataset import create_dataloader
 
 
