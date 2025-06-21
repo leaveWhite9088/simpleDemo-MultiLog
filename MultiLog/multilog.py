@@ -165,7 +165,7 @@ class MultiLogTrainer:
                     prob_tensor = self.model.cluster_classifier.autoencoder.standardize_probabilities([all_probabilities[0]])
                     
                     # 填充到固定长度β
-                    padded_input = torch.zeros(1, self.model.cluster_classifier.autoencoder.input_size)
+                    padded_input = torch.zeros(1, self.model.cluster_classifier.autoencoder.input_size).to(self.device)
                     for i, p in enumerate(all_probabilities[0][:self.model.cluster_classifier.autoencoder.input_size]):
                         padded_input[0, i] = p
                     

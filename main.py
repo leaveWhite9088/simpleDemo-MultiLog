@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--window_size', type=int, default=5, help='Time window size in seconds')
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
     parser.add_argument('--save_path', type=str, default='./checkpoints', help='Path to save model')
+    parser.add_argument('--sample_ratio', type=float, default=0.01, help='Ratio of data to use (default: 0.05 for 5%)')
     
     args = parser.parse_args()
     
@@ -23,6 +24,7 @@ def main():
     print(f"Device: {args.device}")
     print(f"Number of nodes: {args.num_nodes}")
     print(f"Dataset: Single2Single")
+    print(f"Data sample ratio: {args.sample_ratio*100:.1f}%")
     print("-" * 50)
     
     # Create data loaders
@@ -30,14 +32,16 @@ def main():
         args.data_path,
         batch_size=args.batch_size,
         num_nodes=args.num_nodes,
-        mode='train'
+        mode='train',
+        sample_ratio=args.sample_ratio
     )
     
     val_loader = create_dataloader(
         args.data_path,
         batch_size=args.batch_size,
         num_nodes=args.num_nodes,
-        mode='val'
+        mode='val',
+        sample_ratio=args.sample_ratio
     )
     
     # Initialize model

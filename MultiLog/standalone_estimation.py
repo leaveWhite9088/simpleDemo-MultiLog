@@ -135,6 +135,12 @@ class StandaloneEstimation(nn.Module):
         if len(semantic_emb.shape) == 2:
             semantic_emb = semantic_emb.unsqueeze(0)
         
+        # 确保所有张量在同一设备上（与模型同一设备）
+        device = next(self.parameters()).device
+        sequential_emb = sequential_emb.to(device)
+        quantitative_emb = quantitative_emb.to(device)
+        semantic_emb = semantic_emb.to(device)
+        
         # 步骤2：信息增强 (LSTM + Self-Attention)
         # 对应论文Section 3.1.3 - Information Enhancement
         enhanced_features, attention_weights = self.enhancement_module(

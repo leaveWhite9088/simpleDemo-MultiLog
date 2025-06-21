@@ -179,36 +179,59 @@ class SemanticEmbedding:
         输入：log_content - 日志文本内容
         输出：事件语义向量V
         """
-        # 步骤1：文本预处理
-        words = self.preprocess_text(log_content)
-        
-        if not words:
-            return torch.zeros(self.embedding_dim)
-        
-        # 步骤2：获取词向量
-        word_vectors = []
-        for word in words:
-            word_vectors.append(self.get_word_vector(word))
-        
-        # 步骤3：TF-IDF权重计算
-        # 论文描述：使用TF-IDF计算每个单词在事件中的权重ε
-        tfidf = TfidfVectorizer(max_features=len(words))
         try:
-            tfidf_matrix = tfidf.fit_transform([' '.join(words)])
-            weights = tfidf_matrix.toarray()[0]
-        except:
-            # 如果TF-IDF失败，使用均匀权重
-            weights = np.ones(len(words)) / len(words)
-        
-        # 步骤4：加权求和
-        # 论文公式：V = Σ(ε * v) - 通过加权求和聚合单词向量
-        weighted_vectors = []
-        for i, vec in enumerate(word_vectors):
-            weighted_vectors.append(vec * weights[i])
-        
-        event_vector = np.mean(weighted_vectors, axis=0)
-        
-        return torch.tensor(event_vector, dtype=torch.float32)
+            # 步骤1：文本预处理
+            words = self.preprocess_text(log_content)
+            
+            if not words:
+                return torch.zeros(self.embedding_dim)
+            
+            # 步骤2：获取词向量
+            word_vectors = []
+            for word in words:
+                word_vectors.append(self.get_word_vector(word))
+            
+            if not word_vectors:
+                return torch.zeros(self.embedding_dim)
+            
+            # 步骤3：TF-IDF权重计算
+            # 论文描述：使用TF-IDF计算每个单词在事件中的权重ε
+            tfidf = TfidfVectorizer(max_features=len(words))
+            try:
+                tfidf_matrix = tfidf.fit_transform([' '.join(words)])
+                weights = tfidf_matrix.toarray()[0]
+            except:
+                # 如果TF-IDF失败，使用均匀权重
+                weights = np.ones(len(words)) / len(words)
+            
+            # 确保权重数组和词向量数组长度一致
+            min_length = min(len(word_vectors), len(weights))
+            word_vectors = word_vectors[:min_length]
+            weights = weights[:min_length]
+            
+            if min_length == 0:
+                return torch.zeros(self.embedding_dim)
+            
+            # 步骤4：加权求和
+            # 论文公式：V = Σ(ε * v) - 通过加权求和聚合单词向量
+            weighted_vectors = []
+            for i, vec in enumerate(word_vectors):
+                if i < len(weights):  # 额外的安全检查
+                    weighted_vectors.append(vec * weights[i])
+                else:
+                    weighted_vectors.append(vec * (1.0 / len(word_vectors)))  # 使用平均权重
+            
+            if not weighted_vectors:
+                return torch.zeros(self.embedding_dim)
+            
+            event_vector = np.mean(weighted_vectors, axis=0)
+            
+            return torch.tensor(event_vector, dtype=torch.float32)
+            
+        except Exception as e:
+            # 如果任何步骤失败，返回零向量
+            print(f"Warning: Error in semantic embedding for '{log_content[:50]}...': {e}")
+            return torch.zeros(self.embedding_dim)
     
     def embed(self, log_group: List[Dict]) -> torch.Tensor:
         """

@@ -77,13 +77,20 @@ class LogParser:
         # 步骤2：Drain3日志解析
         # 论文要求：使用Drain3算法识别日志模板
         result = self.drain_parser.add_log_message(content)
-        template_id = result.cluster_id
+        
+        # 兼容不同版本的drain3 API
+        if isinstance(result, dict):
+            template_id = result.get('cluster_id', 0)
+            template = result.get('template', content)
+        else:
+            template_id = result.cluster_id
+            template = result.get_template()
         
         # 步骤3：事件ID分配
         # 为每个唯一的日志模板分配连续的事件ID
         if template_id not in self.event_id_map:
             self.event_id_map[template_id] = self.event_counter
-            self.event_templates[self.event_counter] = result.get_template()
+            self.event_templates[self.event_counter] = template
             self.event_counter += 1
         
         event_id = self.event_id_map[template_id]
