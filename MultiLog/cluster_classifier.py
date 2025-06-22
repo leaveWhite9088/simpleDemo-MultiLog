@@ -97,6 +97,10 @@ class ProbabilityAutoEncoder(nn.Module):
         
         prob_tensor = torch.tensor(padded_probs, dtype=torch.float32)
         
+        # 确保张量在正确的设备上
+        device = next(self.parameters()).device
+        prob_tensor = prob_tensor.to(device)
+        
         # 编码为固定长度的隐向量
         with torch.no_grad():
             _, z = self.forward(prob_tensor)
@@ -193,6 +197,10 @@ class ClusterClassifier(nn.Module):
         concatenated = standardized_features.flatten()
         if len(concatenated.shape) == 1:
             concatenated = concatenated.unsqueeze(0)
+        
+        # 确保拼接后的特征在正确的设备上
+        device = next(self.parameters()).device
+        concatenated = concatenated.to(device)
         
         # 步骤3：元分类
         # 基于拼接特征预测集群状态

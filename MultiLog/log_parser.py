@@ -60,31 +60,54 @@ class LogParser:
         
         论文描述：将非结构化日志解析为结构化事件
         """
-        # 步骤1：时间戳提取
-        # 支持标准时间格式：YYYY-MM-DD HH:MM:SS
-        timestamp_pattern = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})'
-        match = re.search(timestamp_pattern, log_line)
+        # 清理日志行
+        log_line = log_line.strip()
+        if log_line.startswith('- '):
+            log_line = log_line[2:]  # 移除IoTDB日志前缀 "- "
         
-        if match:
-            timestamp_str = match.group(1)
+        # 步骤1：时间戳提取
+        # 支持多种时间格式
+        # 格式1：标准时间格式：YYYY-MM-DD HH:MM:SS
+        timestamp_pattern1 = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})'
+        # 格式2：Unix时间戳（inject.log中的格式）
+        timestamp_pattern2 = r'^(\d{10}\.\d+)$'
+        
+        match1 = re.search(timestamp_pattern1, log_line)
+        match2 = re.match(timestamp_pattern2, log_line)
+        
+        if match1:
+            timestamp_str = match1.group(1)
             timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
-            content = log_line[match.end():].strip()
+            # 提取时间戳后的内容
+            content = log_line[match1.end():].strip()
+            # 去除可能的逗号和毫秒
+            content = re.sub(r'^,\d{3}\s*', '', content)
+        elif match2:
+            # Unix时间戳
+            timestamp_float = float(match2.group(1))
+            timestamp = datetime.fromtimestamp(timestamp_float)
+            content = 'timestamp: ' + str(timestamp_float)
         else:
             # 如果无法提取时间戳，使用当前时间
             timestamp = datetime.now()
-            content = log_line.strip()
+            content = log_line
         
         # 步骤2：Drain3日志解析
         # 论文要求：使用Drain3算法识别日志模板
-        result = self.drain_parser.add_log_message(content)
-        
-        # 兼容不同版本的drain3 API
-        if isinstance(result, dict):
-            template_id = result.get('cluster_id', 0)
-            template = result.get('template', content)
-        else:
-            template_id = result.cluster_id
-            template = result.get_template()
+        try:
+            result = self.drain_parser.add_log_message(content)
+            
+            # 兼容不同版本的drain3 API
+            if isinstance(result, dict):
+                template_id = result.get('cluster_id', 0)
+                template = result.get('template', content)
+            else:
+                template_id = result.cluster_id if hasattr(result, 'cluster_id') else 0
+                template = result.get_template() if hasattr(result, 'get_template') else content
+        except Exception as e:
+            # 如果解析失败，使用内容的哈希值作为模板ID
+            template_id = hash(content) % 1000
+            template = content
         
         # 步骤3：事件ID分配
         # 为每个唯一的日志模板分配连续的事件ID
@@ -114,12 +137,17 @@ class LogParser:
         parsed_logs = []
         for line in log_lines:
             if line.strip():  # 跳过空行
-                event_id, content, timestamp = self.parse_log_line(line)
-                parsed_logs.append({
-                    'event_id': event_id,
-                    'content': content,
-                    'timestamp': timestamp
-                })
+                try:
+                    event_id, content, timestamp = self.parse_log_line(line)
+                    parsed_logs.append({
+                        'event_id': event_id,
+                        'content': content,
+                        'timestamp': timestamp
+                    })
+                except Exception as e:
+                    # 如果解析失败，跳过该行
+                    print(f"Warning: Failed to parse log line: {line[:50]}... Error: {e}")
+                    continue
         return parsed_logs
 
 

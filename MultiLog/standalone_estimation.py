@@ -127,19 +127,21 @@ class StandaloneEstimation(nn.Module):
         # 语义嵌入：语义向量序列 V_j = (v(e(s_1)), v(e(s_2)), ..., v(e(s_M)))
         semantic_emb = self.semantic_embedding.embed(log_group)
         
-        # 维度调整以适配LSTM输入要求
-        if len(sequential_emb.shape) == 1:
-            sequential_emb = sequential_emb.unsqueeze(0)
-        if len(quantitative_emb.shape) == 1:
-            quantitative_emb = quantitative_emb.unsqueeze(0).unsqueeze(1)
-        if len(semantic_emb.shape) == 2:
-            semantic_emb = semantic_emb.unsqueeze(0)
-        
         # 确保所有张量在同一设备上（与模型同一设备）
         device = next(self.parameters()).device
         sequential_emb = sequential_emb.to(device)
         quantitative_emb = quantitative_emb.to(device)
         semantic_emb = semantic_emb.to(device)
+        
+        # 维度调整以适配LSTM输入要求
+        if len(sequential_emb.shape) == 1:
+            sequential_emb = sequential_emb.unsqueeze(0)
+        if len(quantitative_emb.shape) == 1:
+            # 将频率向量重塑为序列：[vocab_size] -> [1, vocab_size, 1]
+            # 每个频率值作为一个时间步，输入维度为1
+            quantitative_emb = quantitative_emb.unsqueeze(0).unsqueeze(-1)
+        if len(semantic_emb.shape) == 2:
+            semantic_emb = semantic_emb.unsqueeze(0)
         
         # 步骤2：信息增强 (LSTM + Self-Attention)
         # 对应论文Section 3.1.3 - Information Enhancement
@@ -166,12 +168,17 @@ class StandaloneEstimation(nn.Module):
         
         for group in log_groups:
             if len(group) > 0:
-                # 处理单个日志组
-                prob, _ = self.forward_single_group(group)
-                probabilities.append(prob.item() if isinstance(prob, torch.Tensor) else prob)
+                try:
+                    # 处理单个日志组
+                    prob, _ = self.forward_single_group(group)
+                    probabilities.append(prob.item() if isinstance(prob, torch.Tensor) else prob)
+                except Exception as e:
+                    print(f"Error processing log group: {e}")
+                    # 处理失败时赋予中等概率
+                    probabilities.append(0.5)
             else:
-                # 空日志组赋予0概率
-                probabilities.append(0.0)
+                # 空日志组赋予低概率
+                probabilities.append(0.1)
         
         return probabilities
     
@@ -190,8 +197,17 @@ class StandaloneEstimation(nn.Module):
         
         对应论文Section 3.1中描述的完整Standalone Estimation流程
         """
-        # 日志预处理
-        log_groups = self.process_raw_logs(log_lines)
-        
-        # 特征提取和异常检测
-        return self.forward(log_groups)
+        try:
+            # 日志预处理
+            log_groups = self.process_raw_logs(log_lines)
+            
+            # 如果没有有效的日志组，返回一个默认概率
+            if not log_groups:
+                return [0.5]  # 返回中等概率表示不确定
+            
+            # 特征提取和异常检测
+            return self.forward(log_groups)
+        except Exception as e:
+            print(f"Error processing node logs: {e}")
+            # 出错时返回默认概率列表
+            return [0.5]

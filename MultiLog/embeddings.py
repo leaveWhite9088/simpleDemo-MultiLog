@@ -43,8 +43,15 @@ class SequentialEmbedding:
         
         论文描述：代表了日志发生的时间顺序模式
         """
+        if not log_group:
+            # 空日志组返回一个默认事件ID
+            return torch.tensor([0], dtype=torch.long)
+        
         # 提取事件ID序列：E_j = (e(s_1), e(s_2), ..., e(s_M))
         event_sequence = [int(log['event_id']) for log in log_group]
+        
+        if not event_sequence:
+            event_sequence = [0]
         
         event_tensor = torch.tensor(event_sequence, dtype=torch.long)
         
@@ -73,14 +80,19 @@ class QuantitativeEmbedding:
         
         论文描述：捕获不同事件类型的出现模式
         """
+        # 构建计数向量 C_j = (c_j(e_1), c_j(e_2), ..., c_j(e_n))
+        count_vector = torch.zeros(self.vocab_size, dtype=torch.float32)
+        
+        if not log_group:
+            # 空日志组返回零向量
+            return count_vector
+        
         # 统计事件ID出现频率
         event_counts = Counter([int(log['event_id']) for log in log_group])
         
-        # 构建计数向量 C_j = (c_j(e_1), c_j(e_2), ..., c_j(e_n))
-        count_vector = torch.zeros(self.vocab_size)
         for event_id, count in event_counts.items():
             if event_id < self.vocab_size:
-                count_vector[event_id] = count
+                count_vector[event_id] = float(count)
         
         return count_vector
 
@@ -184,7 +196,7 @@ class SemanticEmbedding:
             words = self.preprocess_text(log_content)
             
             if not words:
-                return torch.zeros(self.embedding_dim)
+                return torch.zeros(self.embedding_dim, dtype=torch.float32)
             
             # 步骤2：获取词向量
             word_vectors = []
@@ -192,7 +204,7 @@ class SemanticEmbedding:
                 word_vectors.append(self.get_word_vector(word))
             
             if not word_vectors:
-                return torch.zeros(self.embedding_dim)
+                return torch.zeros(self.embedding_dim, dtype=torch.float32)
             
             # 步骤3：TF-IDF权重计算
             # 论文描述：使用TF-IDF计算每个单词在事件中的权重ε
@@ -210,7 +222,7 @@ class SemanticEmbedding:
             weights = weights[:min_length]
             
             if min_length == 0:
-                return torch.zeros(self.embedding_dim)
+                return torch.zeros(self.embedding_dim, dtype=torch.float32)
             
             # 步骤4：加权求和
             # 论文公式：V = Σ(ε * v) - 通过加权求和聚合单词向量
@@ -222,7 +234,7 @@ class SemanticEmbedding:
                     weighted_vectors.append(vec * (1.0 / len(word_vectors)))  # 使用平均权重
             
             if not weighted_vectors:
-                return torch.zeros(self.embedding_dim)
+                return torch.zeros(self.embedding_dim, dtype=torch.float32)
             
             event_vector = np.mean(weighted_vectors, axis=0)
             
@@ -231,7 +243,7 @@ class SemanticEmbedding:
         except Exception as e:
             # 如果任何步骤失败，返回零向量
             print(f"Warning: Error in semantic embedding for '{log_content[:50]}...': {e}")
-            return torch.zeros(self.embedding_dim)
+            return torch.zeros(self.embedding_dim, dtype=torch.float32)
     
     def embed(self, log_group: List[Dict]) -> torch.Tensor:
         """
@@ -242,11 +254,19 @@ class SemanticEmbedding:
         
         论文描述：为日志组中每个事件生成语义向量，形成序列
         """
+        if not log_group:
+            # 空日志组返回一个零向量
+            return torch.zeros(1, self.embedding_dim, dtype=torch.float32)
+        
         semantic_vectors = []
         for log in log_group:
             # 为每个日志事件生成语义向量
             vec = self.embed_single_log(log['content'])
             semantic_vectors.append(vec)
+        
+        if not semantic_vectors:
+            # 如果没有有效向量，返回一个零向量
+            return torch.zeros(1, self.embedding_dim, dtype=torch.float32)
         
         # 堆叠成序列张量
         semantic_tensor = torch.stack(semantic_vectors)
