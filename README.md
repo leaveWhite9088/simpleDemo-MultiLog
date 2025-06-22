@@ -2,6 +2,8 @@
 
 基于KDD '24论文《Multivariate Log-based Anomaly Detection for Distributed Database》的Demo实现。
 
+❗特别注意：本demo项目仅用于北京大学软件与微电子学院夏令营考核，如有生产或研究需要，请考虑参考原论文
+
 ## 📋 项目简介
 
 MultiLog 是一个用于分布式数据库日志异常检测的多变量深度学习模型。该模型采用一个两阶段的监督学习框架，旨在准确识别分布式系统中的各类异常。
@@ -238,7 +240,7 @@ with torch.no_grad():
 
 ## 📖 论文参考
 
-本demo项目仅用于北京大学软件与微电子学院夏令营考核，如有生产或研究需要，请考虑参考原论文：
+再次申明：本demo项目仅用于北京大学软件与微电子学院夏令营考核，如有生产或研究需要，请考虑参考原论文：
 
 ```
 @inproceedings{multilog2024,
