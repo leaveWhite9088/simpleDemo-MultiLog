@@ -263,5 +263,44 @@ def main():
     print("\nAll visualizations have been generated successfully!")
 
 
+def visualize_from_checkpoint(checkpoint_path: str = './checkpoints/best_model.pth'):
+    """从检查点文件加载并可视化真实的训练结果"""
+    visualizer = MultiLogVisualizer()
+    
+    # 加载训练历史
+    if os.path.exists(checkpoint_path):
+        print(f"Loading checkpoint from {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        
+        if 'history' in checkpoint:
+            print("Plotting training history...")
+            visualizer.plot_training_history(checkpoint['history'])
+            
+            # 打印最终结果
+            history = checkpoint['history']
+            final_train_acc = history['train_acc'][-1] if history['train_acc'] else 0
+            final_val_acc = history['val_acc'][-1] if history['val_acc'] else 0
+            print(f"Final Training Accuracy: {final_train_acc:.4f}")
+            print(f"Final Validation Accuracy: {final_val_acc:.4f}")
+        else:
+            print("No training history found in checkpoint")
+    else:
+        print(f"Checkpoint file not found: {checkpoint_path}")
+        print("Generating example visualizations instead...")
+        main()
+
+
 if __name__ == '__main__':
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description='MultiLog Results Visualization')
+    parser.add_argument('--checkpoint', type=str, default='./checkpoints/best_model.pth',
+                       help='Path to the model checkpoint')
+    parser.add_argument('--example', action='store_true', 
+                       help='Generate example visualizations instead of loading checkpoint')
+    
+    args = parser.parse_args()
+    
+    if args.example:
+        main()
+    else:
+        visualize_from_checkpoint(args.checkpoint)

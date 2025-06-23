@@ -113,75 +113,62 @@ data/
 
 ### 1. 模型训练
 
-**基础训练 (使用5%数据进行快速验证):**
+**基础训练 (使用1%数据进行快速验证):**
 
 ```bash
 python main.py
 ```
 
-**自定义单节点训练 (例如Single2Single):**
-
-```bash
-python main.py --num_nodes 1 --epochs 20 --batch_size 4 --sample_ratio 0.1
-```
-
-**自定义多节点训练 (例如Multi2Multi):**
-
-```bash
-python main.py --num_nodes 4 --epochs 50 --batch_size 8 --sample_ratio 0.1
-```
-
 **带实时可视化的训练:**
 
 ```bash
-python plt/train_with_visualization.py --epochs 10 --sample_ratio 0.05
+python plt/train_with_visualization.py --epochs 10 --sample_ratio 0.01
+```
+
+**自定义训练参数:**
+
+```bash
+python plt/train_with_visualization.py \
+    --epochs 20 \
+    --sample_ratio 0.05 \
+    --batch_size 8 \
+    --learning_rate 0.001 \
+    --device cuda
 ```
 
 ### 2. 评估与可视化
 
-训练完成后，评估结果和可视化图表将自动生成。
+#### 自动可视化
+训练完成后，评估结果和可视化图表将自动生成并保存到 `plt/figures/` 目录。
 
-- **查看位置**: `plt/figures/` 目录
-- 包含内容:
-  - `training_history.png`: 训练/验证过程的损失和准确率曲线
-  - `confusion_matrix.png`: 验证集上的混淆矩阵
-  - `roc_curve.png`: ROC曲线与AUC值
-  - `pr_curve.png`: Precision-Recall曲线
-  - `score_distribution.png`: 正常/异常样本的预测分数分布
+#### 手动生成可视化
 
-若需在训练后单独生成可视化图表，请运行：
+**使用真实训练结果:**
 
 ```bash
+# 使用默认检查点路径
 python plt/visualize_results.py
+
+# 或指定检查点路径
+python plt/visualize_results.py --checkpoint ./checkpoints/best_model.pth
 ```
 
-### 3. 推理示例
-
-```python
-import torch
-from MultiLog.multilog import MultiLog
-
-# 1. 加载训练好的模型
-model = MultiLog(num_nodes=1, hidden_size=128, window_size=5)
-# 请确保你的模型路径正确
-checkpoint = torch.load('checkpoints/best_model.pth')
-model.load_state_dict(checkpoint['model_state_dict'])
-model.eval()
-
-# 2. 准备待预测的日志数据 (列表形式)
-logs = ["2024-01-01 10:00:00 INFO Database connection established",
-        "2024-01-01 10:00:01 ERROR Query timeout exceeded",
-        "2024-01-01 10:00:02 WARN High memory usage detected"]
-
-# 3. 执行预测
-with torch.no_grad():
-    # 以单节点为例
-    anomaly_probs = model.standalone_estimators[0](logs)
-    is_anomaly = anomaly_probs.mean() > 0.5
-    print(f"异常概率: {anomaly_probs.mean():.4f}, 是否异常: {is_anomaly}")
+**生成示例可视化图表:**
+```bash
+python plt/visualize_results.py --example
 ```
 
-### 4. 参数说明
+#### 可视化内容
+
+- **查看位置**: `plt/figures/` 目录
+- **包含内容**:
+  - `training_history.png`: 训练/验证过程的损失和准确率曲线
+  - `confusion_matrix.png`: 验证集上的混淆矩阵 (含准确率、精确率、召回率、F1分数)
+  - `roc_curve.png`: ROC曲线与AUC值
+  - `pr_curve.png`: Precision-Recall曲线与平均精度
+  - `score_distribution.png`: 正常/异常样本的预测分数分布
+
+### 3. 参数说明
 
 | 参数              | 默认值          | 说明                                          |
 | ----------------- | --------------- | --------------------------------------------- |
@@ -195,48 +182,6 @@ with torch.no_grad():
 | `--sample_ratio`  | `0.05`          | 使用数据的比例，用于快速实验（1.0为全量数据） |
 | `--device`        | `auto`          | 计算设备 (`auto`/`cuda`/`cpu`)                |
 | `--save_path`     | `./checkpoints` | 训练模型的保存路径                            |
-
-## ⚠️ 注意事项
-
-1. **FastText模型下载**: 首次运行`Semantic Embedding`时，程序会自动下载预训练的FastText模型（`cc.en.300.bin`）。如因网络问题下载失败，会回退到随机嵌入，可能影响模型性能。
-2. **内存/显存使用**: 多节点、大批量、全量数据的训练需要较多内存。请根据机器配置适当调整 `--batch_size` 和 `--sample_ratio` 参数。
-3. **数据格式**: 请确保日志文件为`.log`或`.txt`格式，每行一条日志记录，且包含可被解析的时间戳。
-
-## 🤯 故障排除
-
-1. 内存不足 (Out of Memory)
-
-   - **解决方案**: 减小批次大小或降低数据采样率。
-
-   ```bash
-   # 减少批次大小
-   python main.py --batch_size 2
-   # 或，减少数据量
-   python main.py --sample_ratio 0.01
-   ```
-
-2. CUDA 错误
-
-   - **原因**: PyTorch版本与CUDA驱动不兼容，或GPU显存不足。
-   - 解决方案:
-     - 更新NVIDIA驱动。
-     - 尝试使用CPU进行训练。
-
-   ```bash
-   python main.py --device cpu
-   ```
-
-3. 依赖包冲突
-
-   - **原因**: 全局Python环境包版本混乱。
-   - **解决方案**: 强烈建议使用虚拟环境，并重新安装依赖。
-
-   ```bash
-   rm -rf venv  # 删除旧环境
-   python -m venv venv
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
 
 ## 📖 论文参考
 
